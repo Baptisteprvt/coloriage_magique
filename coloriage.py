@@ -1,33 +1,3 @@
-#!/usr/bin/env python3
-"""
-color_by_number.py – Fiche « coloriage magique » + aperçu, **avec fusion** des zones
-adjacentes partageant la même couleur de légende.
-
-Nouveauté
----------
-Les super-pixels (SLIC) qui se touchent *et* qui reçoivent le même numéro de
-légende sont automatiquement fusionnés ; la fiche n’affiche donc qu’une seule
-zone numérotée pour cet ensemble contigu. Cela évite les frontières inutiles et
-facilite le coloriage.
-
-Usage
------
-```bash
-python color_by_number.py input.jpg sheet.png \
-       --segments 350 --palette 10 \
-       --preview preview.png --legend legend.png
-```
-La syntaxe reste identique, toute fusion étant effectuée automatiquement en
-interne.
-
-Dépendances
------------
-```bash
-pip install numpy scikit-image scikit-learn pillow opencv-python
-```
-
-"""
-
 from __future__ import annotations
 import argparse
 import sys
@@ -37,15 +7,10 @@ import numpy as np
 from skimage import io, segmentation, color, morphology
 from sklearn.cluster import KMeans
 from PIL import Image, ImageDraw, ImageFont
-
-# OpenCV (optionnel) pour dilatation rapide.
 try:
-    import cv2  # type: ignore
-except ModuleNotFoundError:  # Fallback sur skimage.
-    cv2 = None  # type: ignore
-
-
-# ╭─────────────────────────── Aide générale ───────────────────────────╮
+    import cv2  
+except ModuleNotFoundError:
+    cv2 = None 
 
 class UnionFind:
     """Structure d’union-trouve simple (compression de chemin + union par rang)."""
@@ -56,7 +21,7 @@ class UnionFind:
 
     def find(self, x: int) -> int:
         while self.parent[x] != x:
-            self.parent[x] = self.parent[self.parent[x]]  # compression
+            self.parent[x] = self.parent[self.parent[x]]
             x = self.parent[x]
         return x
 
@@ -64,7 +29,7 @@ class UnionFind:
         ra, rb = self.find(a), self.find(b)
         if ra == rb:
             return
-        # union par rang
+
         if self.rank[ra] < self.rank[rb]:
             self.parent[ra] = rb
         elif self.rank[ra] > self.rank[rb]:
@@ -109,10 +74,9 @@ def quantize_palette(means: np.ndarray, k: int, random_state: int = 42):
 
 
 def assign_palette(labels: np.ndarray, palette_idx: np.ndarray):
-    return palette_idx[labels] + 1  # 1-base pour la légende
+    return palette_idx[labels] + 1
 
 
-# ╭────────────────── Fusion des régions adjacentes même couleur ──────────────────╮
 
 def merge_same_color_regions(labels: np.ndarray, numbers: np.ndarray):
     """Retourne (merged_labels, mapping merged_label → number)."""
@@ -148,7 +112,6 @@ def merge_same_color_regions(labels: np.ndarray, numbers: np.ndarray):
     return merged_labels, region_to_number
 
 
-# ╭─────────────────────── Frontières & dessin ───────────────────────────╮
 
 def generate_boundary_image(labels: np.ndarray, thickness: int) -> np.ndarray:
     boundaries = segmentation.find_boundaries(labels, mode="outer").astype(np.uint8) * 255
@@ -186,7 +149,7 @@ def save_legend(path: Path, palette_rgb: np.ndarray):
     legend.save(path)
 
 
-# ╭──────────────────────── Aperçu colorié ───────────────────────────────╮
+
 
 def generate_preview_image(number_map: np.ndarray, palette_rgb: np.ndarray,
                            boundaries: np.ndarray | None = None) -> Image.Image:
@@ -196,7 +159,7 @@ def generate_preview_image(number_map: np.ndarray, palette_rgb: np.ndarray,
     return Image.fromarray(preview_rgb, "RGB")
 
 
-# ╭───────────────────────────── CLI ─────────────────────────────────────╮
+
 
 def parse_args():
     p = argparse.ArgumentParser(description="Génère fiche color-by-number fusionnée + aperçu.")
